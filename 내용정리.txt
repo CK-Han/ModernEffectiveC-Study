@@ -1,0 +1,65 @@
+*******180107
+* Chapter 01 템플릿 형식 연역 규칙
+	sample) tempalte <typename T>
+		void f(ParamType param) ... f(expr);
+
+	case 1 : ParamType이 포인터(T*) 또는 참조 형식(T&)이나 보편참조(universal reference)는 아닌 경우
+		포인터나 참조자 속성은 제외한 나머지가 T의 형식으로 추론된다
+		ex) expr이 int* 이고 ParamType이 const T*면 -> T는 int로 추론된다.
+		ex) expr이 const int이고 ParamType이 T&라면 -> T는 const int이며 ParamType은 const int&가 된다.
+	
+	case 2 : ParamType이 보편참조(T&&)인 경우
+		LValue는 T와 ParamType이 둘 다 T&로, RValue인 경우는 T는 T이고 ParamType은 T&&로 표현된다.
+		ex) int x = 3; f(x); 라면 T와 ParamType 둘 다 int&로 연역된다.
+		ex) cosnt int& y = x; f(y); 라면 T와 ParamType 둘 다 const int& 이다.
+		ex) f(23); 라면 T는 int이고, ParamType은 int&& 이다.
+	이유는 후에 보편참조 및 퍼펙트포워딩에서 설명하고, 이와 같이 LValue와 RValue에 대해 다른 연역 규칙이 적용되는건 &&가 유일
+	
+	case 3 : ParamType이 포인터도 아니고 참조도 아닌 경우 값에 의한 전달, 즉 복사되는 경우
+		복사본이 생성된다.참조 그리고 const 게다가 volatile 속성까지 무시된다.
+		void f(T param)에서 int x; 건 const int cx;건 const int& rx;건 모두 T와 ParamType 둘 다 int이다.
+		허나 expr이 const 객체를 가리키는 const 포인터라면? const char* const x; -> 포인터의 상수성은 빠지고 const char*로 넘어간다.
+	
+		배열의 경우, 함수 시그니처 자체에서는 int[]는 int*와 같다. 허나 배열에 대한 참조를 통해 배열로 연역할 수 있고 개수도 알 수 있다.
+		template<class T, std::size_t N>
+		std::size_t f(T(&param)[N]);  int x[] = {3,4,5}; -> N은 3이며 T는 int로, ParamType은 int [3]으로 연역된다.	
+		위와 같이 배열이 포인터로 붕괴되는 경우에 더불어, 함수 형식도 함수 포인터로 붕괴된다. void func(void); f(func);면 T는 void (*)(void)
+		하지만 배열 참조와 같이 참조로 ParamType이 표현되는 경우 붕괴되지 않는다.
+
+
+* Chapter 02 auto의 형식 연역 규칙
+	특별한 한 경우를 제외하곤 템플릿 형식 연역 규칙과 같다.
+	case 1 : 형식 지정자가 포인터나 참조 형식이지만 보편참조는 아닌 경우
+	case 2 : 보편 참조인 경우
+	case 3 : 형식 지정자가 포인터도 아니고 참조도 아닌 경우
+		템플릿과 똑같으나, c++11부터 생긴 {}초기화에 의해 다른 점이 발생한다
+		auto x1 = 3;
+		auto x2(3);
+		auto x3{3};	
+		auto x4 = {3};	//이 경우 std::initializer_list의 형식으로 연역된다
+	c++14에서, return 형식에 auto 연역을 사용할 수 있으나 이 때에는 템플릿 연역 규칙을 따른다
+	즉 auto f() { return {1,2,3}; } 은 컴파일 오류가 발생한다. 템플릿 연역 규칙에서는 형식 연역이 불가능하므로
+
+* Chapter 03 decltype의 작동 방식
+	decltype(expr) -> 이름이나 표현식의 형식을 알려준다.
+	auto 반환형의 후행 반환 형식 auto f() -> decltype(param)에 사용되는 경우, 반환형의 연역에서 &나 const 속성이 누락될 수 있다
+	고로 decltype(auto) f()의 표현으로 정확한 형식을 반환할 수 있다. 물론 변수의 선언에서도 사용 가능
+	
+	decltype은 형식이 T이고 이름이 아닌 왼값 표현식에 대해서는 항상 T&를 반환한다.
+	int x = 3; decltype(x) 는 int이나 decltype((x))는 int&이다. (x)는 이름이 아닌 표현식이다.
+
+
+* Chapter 04 연역된 형식을 파악하는 방법을 알자 / typeid.name()을 믿지 마라
+	template<class Cont>
+	void foo(Cont&& c); 와 같은 경우, c에 좌변값이건 우변값이건 typeid(c).name()은 그저 Cont의 타입을 반환할 뿐이다.
+	즉 이것이 좌변값 참조인지 우변값 참조인지도 모르고, 심지어 const나 volatile 속성도 파악되지 않는다.
+	컴파일러에서 확인해도 같으며, 이를 위해 boost의 type_index를 활용, type_id_with_cvr<T>().pretty_name()을 활용해보자.
+
+
+
+
+
+
+
+
+
