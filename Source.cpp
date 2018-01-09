@@ -1,14 +1,25 @@
 #include <iostream>
 #include <string>
 #include <set>
+#include <vector>
 
-template <class T>
-void Func(T&& name)
+void f(const std::vector<int>& v)
 {
-	std::cout << typeid(T).name() << std::endl;
+
 }
+
+template<typename... Ts>
+void fwd(Ts&&... param)
+{
+	f(std::forward<Ts>(param)...);
+}
+
+
 
 void main()
 {
-	Func("cacaru");
+	auto t = { 1,2,3 };
+	f({ 1,2,3 });
+	//fwd({1,2,3 }); //연역하지 못함
+	fwd(t);
 }
