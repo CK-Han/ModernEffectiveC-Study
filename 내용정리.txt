@@ -398,14 +398,46 @@
 	캡쳐에서 클래스 멤버를 사용하는 경우, 그 이름으로는 캡쳐 변수를 추론하지 못한다. this를 사용하거나 다른 변수에 담아 넘겨주거나...
 	
 * Chapter 32 객체를 클로저 안으로 이동하려면 초기화 갈무리를 사용하라
+	unique_ptr이나 future 등은 클로저 안으로 들여올 방법은 c++11에는 없고(흉내낼 순 있다), 14에는 존재하는데 바로 초기화 캡쳐이다. 
+	초기화 캡쳐로 클로저 클래스에 속한 자료 멤버의 이름, 그 자료 멤버를 초기화하는 표현식을 지정할 수 있다.
+	ex) auto pw = std::make_unique<Widget>();
+	    auto func = [ pw = std::move(pw) ]() { ... }; 또는 func = [ pw = std::make_unique<Widget>() ] () { ... };
+	
+	c++11에서 이를 흉내내기 위해 클래스를 정의할 수 있으나, bind를 사용할 수도 있다.
+	위 예제를 bind로 풀어보면 
+	auto pw = std::make_unique<Widget>(); auto func = std::bind( [](std::unique_ptr<Widget>& pw) mutable { ... }, std::move(pw) );
+	bind 객체는 전달받은 모든 인수의 복사본들을 왼값은 복사생성된 객체로, 오른값을 이동생성된 객체로 포함한다. 
+	bind 객체 자체로 넘어가게 된 것은 이동생성된 오른값으로 흉내에 성공했으나, 실 사용되는것은 이 객체의 왼값 참조이다.	
+	기본적으로 람다로부터 만들어진 클로저 클래스의 operator()는 const 멤버 함수이다. pw의 수정이 필요한 경우 mutable 키워드가 필요하며
+	아닌 경우의 매개변수 표현식은 (const std::unique_ptr<Widget>& pw) 이다.
+	
+	더불어 bind 객체는 전달받은 인수의 복사본을 저장하므로, 넘겨받은 클로저의 수명은 bind와 동일하게 된다. 
+	
+* Chapter 33 std::forward를 통해서 전달할 auto&& 매개변수에는 decltype을 사용하라
+	auto f = [](auto x) { return normalize(x); }; 와 같은 상황에서, 만일 normalize 함수가 왼값 오른값을 다르게 처리한다면
+		 [](auto&& x) { return normalize(std::forward<decltype(x)>(x)); } 로 진행하자.
+
+* Chapter 34 std::bind보다 람다를 선호하라
+	void SetAlarm(Time, Sound, Duration); 함수가 있을 때, 1시간 이후 30초간 Sound를 변수로 받아 그 소리를 내는 함수를 만든다면
+	람다버전 -> [](Sound s) { SetAlarm(1hour, s, 30sec); }; 이며
+	바인드버전 -> std::bind( SetAlarm, 1hour, placeholder::_1, 30sec ); 이 될 것이다.
+	
+	바인드 버전은 예상과 다르게 행동할 것인데, 람다버전은 호출했을 때부터 1시간 뒤에 소리나는, 즉 생각한 대로 행동하지만
+	바인드 버전은 바인드 객체가 만들어진 시점부터 1시간 뒤에 호출된다! 이는 바인드 객체가 생성될 때 인수들을 복사해서 저장하게 되면서
+	그 표현식이 바로 평가가 진행되기 때문이다.
+
+	이를 해결하기 위해 Time을 다시금 bind한다. (아래 예제는 템플릿 형식 인수를 생략한 형태, c++11은 명시해야함)
+	std::bind( SetAlarm, std::bind(std::plus<>(), now, 1h), placeholder::_1, 30sec);
+	
+	허나 만일 SetAlarm이 오버로딩 되어있다면, 람다는 알아서 해결하나 bind는 컴파일 문제가 생길 것이다.
+	이 해결방법은 사용하고자 하는 함수를 별칭지어 static_cast<별칭>(SetAlarm) 식으로 bind 변수를 넘겨줘야 한다.
+
+	람다버전은 통상적인 함수호출구문으로 인라인 가능성이 높으나 바인드버전은 함수 포인터를 전달함으로써, 람다버전보다 가능성이 낮다.
+	
+	bind는 받은 인수들을 복사해서 저장하므로, 바인드되는 함수가 참조로 진행되더라도 실제 전달은 복사본에 대한 참조이므로
+	의도치 않은 결과가 발생함을 주의해야 한다. (해결책으로 std::ref가 있다. ex) bind(function, ref(w), _1); )
 
 	
-	
-		
-	
-
-
-
 
 
 
