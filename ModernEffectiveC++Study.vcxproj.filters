@@ -45,6 +45,9 @@
     <ClCompile Include="C23_moveAndforward.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C30_forward_failure_case.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Source.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
